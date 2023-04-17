@@ -1,0 +1,187 @@
+{% extends "layout.html" %}
+
+{% block body %}
+<div class="bannerbox">
+    <br>
+    <div class="bannerheader">
+        <h2>ClassWing</h2>
+    </div>
+    <br>
+    <br>
+</div>
+{% if user.is_authenticated and user == profile %}
+    <div class="shareform" style="padding: 1%;">
+        <form class="shareform" style="display: inline;" action='{% url "newpost" %}' method="POST">
+            {% csrf_token %}
+            <input type="text" style="width: 84%;" maxlength=500 name="content" placeholder="Write a note ...">
+            <input type="submit" style="width: 13%;" value="Share">
+        </form>
+        <!-- <br><br>
+        <form action='{% url "newpost" %}' method="POST">
+            {% csrf_token %}
+            {{postform}}
+            <input type="submit" value="Share">
+        </form> -->
+    </div>
+{% endif %}
+<br>
+<div class="container">
+    <div class="profbox">
+        <div class="row">
+            <div class="col-6" style="text-align: center;">
+                <h3>{{ profile.username }}</h3>
+                <p>Joined: {{ profile.date_joined|date }}</p>
+            </div>
+            <div class="col-6" style="text-align: center;">
+                <p>Following: {{ followingCount }}</p>
+                <p>Followers: <span id="followercounter{{ profile.username }}">{{ followers }}</span></p>
+                {% if user.is_authenticated and user != profile %}
+                    <br>
+                    {% if followsAccount %}
+                        <button class="btn btnactive" id="followbutton{{ profile.username }}" onclick="Follow('{{ profile }}')">Unfollow</button>
+                    {% else %}
+                    <button class="btn btnactive" id="followbutton{{ profile.username }}" onclick="Follow('{{ profile }}')">Follow</button>
+                    {% endif %}
+                {% endif %}
+                <!-- Retrieve id of Follow object for the current user and this account -->
+                <div style="display: none;" id="followIdForAccount{{ profile.username }}">
+                    {% for account, followId in followIds.items %}
+                        {% if account == profile %}
+                            {{ followId }}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if user.is_authenticated and user == profile %}
+    <div class="profbox">
+        <h3 style="text-align:center">Add a New Book or Course</h3>
+        <form class="materialform" style="display: inline; text-align:center" action='{% url "newmaterial" %}' method="POST">
+            {% csrf_token %}
+            <input type="text" style="width: 100%;" maxlength=500 name="title" placeholder="Title ..."><br><br>
+            <input type="text" style="width: 100%;" maxlength=500 name="author" placeholder="Author ..."><br><br>
+            <div class="row">
+                <div class="col-4">
+                    <input type="radio"  style="display:inline;" id="book" name="isCourse" value="False">
+                    <label for="book" style="display:inline;">Book</label><br>
+                    <input type="radio" style="display:inline;" id="course" name="isCourse" value="True">
+                    <label for="course" style="display:inline;">Course</label>
+                </div>
+                <div class="col-4">
+                    <label for="startDate" style="display:inline;">Start Date: </label>
+                    <input style="display:inline;" type="date" maxlength=500 name="startDate">
+                </div>
+                <div class="col-4">
+                    <input type="submit" style="width: 50%;" value="Add">
+                </div>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-6 scrollbox" style="margin-bottom: 20px">
+            <div class="postsheading">Materials</div>
+            {% if materials|length == 0 %}
+            <div class="simplebox">
+                <i>No materials yet.</i>
+            </div>
+            {% endif %}
+            {% for k in materials %}
+            <div class="simplebox">
+                <b>{{ k.title | title }}</b><br>
+                {{ k.author | title }}<br>
+                Start date: {{ k.startDate }}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="col-md-6">
+            <div class="postsheading">Notes by {{ profile.username }}</div>
+            {% if activePosts|length == 0 %}
+                <div class="simplebox">
+                    <i>No posts yet.</i>
+                </div>
+            {% endif %}
+            {% for k in page %}
+                <div class="simplebox">
+                    <a href="{% url 'profile' k.poster %}"><b>{{ k.poster }}</b></a>
+                    {% if k.poster == user %}
+                        <button class="btn editbutton" id="editbutton{{ k.id }}" onclick="EditForm('{{ k.id }}')"><i class="bi bi-pen"></i></button>
+                    {% endif %}
+                    <p style="display: block;" id="postcontent{{ k.id }}">{{ k.content }}</p>
+                    {% if k.poster == user %}
+                    <div id="editform{{ k.id }}" style="display: none;">
+                        <div class="editform" id="editform{{ k.id }}">
+                            <textarea style="width: 100%;" maxlength=500 name="content" id="editcontent{{ k.id }}">{{ k.content }}</textarea><br>
+                            <button class="btn btnactive" id="editsubmit{{ k.id }}" onclick="SaveEdit('{{ k.id }}')">Update</button>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="row">
+                        <div class="col-3">
+                            <!-- Retrieve id of Like object for this user and this post -->
+                            <div style="display: none;" aria-disabled="true" id="likeIdForPost{{ k.id }}">
+                                {% for post, likeId in likeIds.items %}
+                                    {% if post == k.id %}
+                                        {{ likeId }}
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+
+                            <!-- Like button -->
+                            {% for post, bool in isLiked.items %}
+                                <!-- If user is logged in and has liked this post -->
+                                {% if post == k and bool %}
+                                    <span onclick="Like('{{ k.id }}')"><i class="bi bi-heart-fill" id="likebutton{{ k.id }}"></i></span>
+                                    <span id="likecounter{{ k.id }}">
+                                        {% for currentPost, likeCount in activePosts.items %}
+                                            {% if currentPost == k %}
+                                                {{ likeCount }}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </span>
+                                <!-- If the user has not liked this post -->
+                                {% elif post == k %}
+                                    {% if user.is_authenticated %}
+                                        <span onclick="Like('{{ k.id }}')"><i class="bi bi-heart" id="likebutton{{ k.id }}"></i></span>
+                                        <span id="likecounter{{ k.id }}">
+                                            {% for currentPost, likeCount in activePosts.items %}
+                                                {% if currentPost == k %}
+                                                    {{ likeCount }}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </span>
+                                    <!-- If no user is signed in, like button is inactive -->
+                                    {% else %}
+                                        <i class="bi bi-heart"></i>
+                                        {% for currentPost, likeCount in activePosts.items %}
+                                            {% if currentPost == k %}
+                                                {{ likeCount }}
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <div class="col-9">
+                            <p class="posttime">{{ k.time }}</p>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+            {% if activePosts|length != 0 %}
+                <div style="text-align: center;">
+                    {% if page.has_previous %}
+                    <a href="{% url 'index' %}?page={{ page.previous_page_number }}" class="btn btnactive">Previous</a>
+                    {% endif %}
+                    {% if page.has_next %}
+                        <a href="{% url 'index' %}?page={{ page.next_page_number }}" class="btn btnactive">Next</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
